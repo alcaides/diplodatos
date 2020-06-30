@@ -1,0 +1,174 @@
+Diplodatos
+02 Análisis Exploratorio y curación de datos
+
+Práctico 07 - Clustering / Gaussian Mixture
+
+Dataset: Heart Failure Clinical Records
+
+https://archive.ics.uci.edu/ml/datasets/Heart+failure+clinical+records#
+
+I Elija un dataset clasificado de su preferencia y area (domain expertise), aplique un metodo de clustering y/o mixtura de Gaussianas en el mismo.
+I Investigue los resultados en el meta parametro K numero de cumulos e investigue posibles procesos de seleccion del mismo.
+I Elabore un resumen, y selecione un mejor valor segun el/los criterios aplicados, discuta el significado de los cumulos encontrados.
+I Comente la influencia de la normalizacion de los datos en los resultados del clustering.
+
+
+============================================
+# Importamos los datos
+
+```{r}
+setwd("C:/Users/santi/Documents/diplodatos/2AnalisisYCuracion-master/R")
+```
+
+```{r}
+data <- read.csv(file = "./heart_failure_clinical_records_dataset.csv")
+```
+
+
+============================================
+# Examinamos el dataset
+
+```{r}
+dim(data)
+```
+
+Tenemos 299 muestras, con datos acerca de 13 features cada una.
+
+```{r}
+names(data)
+```
+
+Se trata de un dataset de pacientes bajo observación. Se ofrecen algunas anotaciones acerca de sus características; el parámetro bajo seguimiento es DEATH_EVENT -si una persona murió debido a un evento cardíaco. Es nuestro parámetro objetivo.
+
+Revisar datos faltantes
+```{r}
+which(is.na(data))
+```
+
+```{r}
+summary(data)
+```
+
+Algunas features son discretas, codificadas con 0 y 1 debido a la presencia o ausencia de alguna característica (como si los pacientes son fumadores).
+
+============================================
+# Data Prep
+
+Para examinar algunas alternativas, se trabajará con el dataset bajo distintos formatos. En el drame dataS, se almacena una versión estandarizada con la función scale(). En el frame dataReal, se trabajará con las variables continuas del dataset original.
+Estos frames no incluyen la columna DEAT_EVENT, el target.
+
+```{r}
+dataS <- as.data.frame(lapply(data[,1:12], scale))
+```
+
+
+```{r}
+dataR <- dataS[,c("creatinine_phosphokinase","ejection_fraction","serum_creatinine","serum_sodium","platelets")]
+```
+
+```{r}
+set.seed(5)
+```
+
+
+============================================
+# Kmeans
+En primer lugar, exploraremos valores de k:
+-k=2, ya que nuestro target tiene dos valores distintos
+-k=5, como valor cercanos
+-k=15, como valor exagerado (5% de la cantidad total de datos)
+
+Se examinan los agrupamientos como tablas. En ellas, se observa también la distribución de etiquetas que indican si el paciente murió o no. El criterio para seleccionar los parámetros óptimos, es que la composición de cada cluster sea muy asimétrica en cuanto a su valor de DEATH_EVENT; es decir, se separen bien los datos que correspondan a uno u otro tipo de pacientes.
+Para k=2, se cuantificará ese criterio como la relación entre el target menos representado respecto del mayor representado para cada cluster. Para cantidad de clusters superiores, se realizará una inspección visual recurriendo a la cuenta en caso de precisión requerida.
+
+
+## K=2
+### Datos originales
+```{r}
+kmodel<-kmeans(data[,1:12],2, nstart=5)
+table(kmodel$cluster, data[,c("DEATH_EVENT")])
+```
+```{r}
+table(kmodel$cluster, data[,c("DEATH_EVENT")])[3]/table(kmodel$cluster, data[,c("DEATH_EVENT")])[1]
+table(kmodel$cluster, data[,c("DEATH_EVENT")])[4]/table(kmodel$cluster, data[,c("DEATH_EVENT")])[2]
+```
+
+### Datos escalados
+```{r}
+kmodel<-kmeans(dataS,2, nstart=5)
+table(kmodel$cluster, data[,c("DEATH_EVENT")])
+```
+```{r}
+table(kmodel$cluster, data[,c("DEATH_EVENT")])[3]/table(kmodel$cluster, data[,c("DEATH_EVENT")])[1]
+table(kmodel$cluster, data[,c("DEATH_EVENT")])[4]/table(kmodel$cluster, data[,c("DEATH_EVENT")])[2]
+```
+
+### Datos escalados, variables reales
+```{r}
+kmodel<-kmeans(dataR,2, nstart=5)
+table(kmodel$cluster, data[,c("DEATH_EVENT")])
+```
+```{r}
+table(kmodel$cluster, data[,c("DEATH_EVENT")])[3]/table(kmodel$cluster, data[,c("DEATH_EVENT")])[1]
+table(kmodel$cluster, data[,c("DEATH_EVENT")])[4]/table(kmodel$cluster, data[,c("DEATH_EVENT")])[2]
+```
+### Comparación
+Los resultados son sumamente ambiguos en todos los casos. Los clusters tienen demasiada mezcla de targets. Los valores escalados mejoran notablemente la separación de un cluster, pero empeoran la del segundo.
+
+## k=5
+### Datos originales
+```{r}
+kmodel<-kmeans(data[,1:12],5, nstart=5)
+table(kmodel$cluster, data[,c("DEATH_EVENT")])
+```
+
+
+### Datos escalados
+```{r}
+kmodel<-kmeans(dataS,5, nstart=5)
+table(kmodel$cluster, data[,c("DEATH_EVENT")])
+```
+
+### Datos escalados, variables reales
+```{r}
+kmodel<-kmeans(dataR,5, nstart=5)
+table(kmodel$cluster, data[,c("DEATH_EVENT")])
+```
+
+### Comparación
+En este caso, se observa mucha mayor diferencia de rendimiento luego de escalar los datos. Utilizando los datos crudos, los grupos menos representados en cada cluster son de entre la mitad o un tercio de los grupos más representados.
+Con los datos escalados, existe un cluster donde los valores están divididos al medio, pero clusters donde la diferencia se a ampliado notablemente (1 a 6).
+Aún no es un método de separación clara.
+
+## k=15
+### Datos originales
+```{r}
+kmodel<-kmeans(data[,1:12],15, nstart=5)
+table(kmodel$cluster, data[,c("DEATH_EVENT")])
+```
+
+
+### Datos escalados
+```{r}
+kmodel<-kmeans(dataS,15, nstart=5)
+table(kmodel$cluster, data[,c("DEATH_EVENT")])
+```
+
+### Datos escalados, variables reales
+```{r}
+kmodel<-kmeans(dataR,15, nstart=5)
+table(kmodel$cluster, data[,c("DEATH_EVENT")])
+```
+
+### Comparación
+En el último caso, puede parecer que los valores han sido separados un poco más.
+De cualqueir manera, sigue habiendo un gran margen de error.
+
+# Notas finales
+Escapa al trabajo práctico, pero otros elementos de tratamiento de los datso podrían explorarse (como balance de las clases, outliers, y otros).
+Puede resultar interesante examinar las características de los clusters para explorar si existe algún efecto de variables específicas, o si hay criterios para encontrar clasos "más clasificables" que otros en elr universo de pacientes.
+La normalización es positiva, quizás se podría examinar qué sucede con otras técnicas (z-score).
+
+
+
+
